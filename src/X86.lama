@@ -286,17 +286,61 @@ fun compile (env, code) {
     fun ([env, scode], i) {
       var code = scode <+ Meta ("# " ++ showSMInsn (i) ++ "\n");
       case i of
-        READ ->
-          case env.allocate of
-            [s, env] -> [env, code <+ Call ("Lread") <+ Mov (eax, s)]
-          esac             
-      | WRITE ->
-          case env.pop of
-            [s, env] -> [env, code <+ Push (s) <+ Call ("Lwrite") <+ Pop (eax)]
-          esac
-      | _ -> failure ("codegeneration for instruction %s is not yet implemented\n", i.string)
-        esac
-    }, [env, emptyBuffer ()], code)}
+          READ ->
+            case env.allocate of
+              [s, env] -> [env, code <+ Call ("Lread") <+> move(eax, s)]
+            esac
+        | WRITE ->
+            case env.pop of
+              [s, env] -> [env, code <+ Push (s) <+ Call ("Lwrite") <+ Pop (eax)]
+            esac
+        | BINOP (op) ->
+            fun getType(op) {
+              case op of
+                  "<"   -> 1
+                | "<="  -> 1
+                | "=="  -> 1
+                | "!="  -> 1
+                | ">="  -> 1
+                | ">"   -> 1
+                | "%"   -> 2
+                | "/"   -> 3
+                | "&&"  -> 4
+                | "!!"  -> 4
+                | _     -> 5
+              esac
+            }
+
+            case env.pop2 of
+              [s1, s2, env] ->
+                case env.allocate of
+                  [ld, env] -> case getType(op) of
+                      1 -> [env, code <+> move(s1, eax) <+ Binop("cmp", eax, s2) <+> move(L(0), eax)
+                        <+ Set(suffix(op), "%al") <+> move(eax, ld)]
+                    | 2 -> [env, code <+> move(s2, eax) <+ Cltd <+ IDiv(s1) <+> move(edx, ld)]
+                    | 3 -> [env, code <+> move(s2, eax) <+ Cltd <+ IDiv(s1) <+> move(eax, ld)]
+                    | 4 -> [env, code <+ Binop("cmp", L(0), s1) <+> move(L(0), eax) <+ Set(suffix(op), "%al")
+                      <+> move(L(0), edx) <+ Binop("cmp", L(0), s2) <+ Set(suffix(op), "%dl")
+                      <+ Binop(op, edx, eax) <+> move(eax, ld)]
+                    | 5 -> [env, code <+> move(s2, eax) <+ Binop(op, s1, eax) <+> move(eax, ld)]
+                  esac
+                esac
+            esac
+        | LD (x) ->
+            case env.allocate of
+              [s, env] -> [env, code <+> move (env.loc(x), s)]
+            esac
+        | ST (x) ->
+            case env.pop of
+              [s, env] -> var newEnv = env.addGlobal(x); [newEnv, code <+> move (s, newEnv.loc(x))]
+            esac
+        | CONST(n) ->
+            case env.allocate of
+              [s, env] -> [env, code <+> move(L(n), s)]
+            esac
+      esac
+    }, [env, emptyBuffer ()], code)
+}
 
 -- A top-level codegeneration function. Takes a driver's environment and a stack machine program,
 -- compiles the program into machine code, and compiles the machine code into an executable
