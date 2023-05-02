@@ -28,6 +28,17 @@ fun eval ([st, world], stmt) {
       [value, newWorld] -> [st <- [rvalue, value], newWorld]
     esac
     | Write (expr) -> [st, writeWorld(evalExpr(st, expr), world)]
+    | If (expr, stmt1, stmt2) ->
+      if evalExpr(st, expr) != 0
+        then eval([st, world], stmt1)
+        else eval([st, world], stmt2)
+      fi
+    | While (expr, stmt) ->
+      if evalExpr(st, expr) == 0
+        then [st, world]
+        else eval([st, world], Seq(stmt, While(expr, stmt)))
+      fi
+    | DoWhile (stmt, expr) -> eval([st, world], Seq(stmt, While(expr, stmt)))
   esac
 }
 
