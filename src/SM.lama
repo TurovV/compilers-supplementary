@@ -67,7 +67,7 @@ fun eval (env, [stack, state, world], insns) {
      esac
    | BINOP (op) : others ->
      case stack of
-       value1 : value2 : stackTail -> eval(env, [(getOp(op) (value2, value1)) : stackTail, state, world], others)
+       value1 : value2 : stackTail -> eval(env, [getOp(op, value2, value1) : stackTail, state, world], others)  -- WTF
      esac
     | LD (x) : others ->
       eval(env, [evalExpr(state, Var (x)) : stack, state, world], others)
@@ -132,14 +132,13 @@ fun genLabels (env, n) {
 
 -- Compiles an expression into a stack machine code.
 -- Takes an expression, returns a list of stack machine instructions
-fun compileExpr (expr) {
+fun compileExpr(expr) {
   case expr of
-    Var (x)                -> { LD(x) }
-  | Const (x)              -> { CONST(x) }
-  | Binop (op, lexp, rexp) -> compileExpr(lexp) +++ compileExpr(rexp) +++ { BINOP(op) }
+      Var (x)                -> singletonBuffer(LD(x))
+    | Const (x)              -> singletonBuffer(CONST(x))
+    | Binop (op, lexp, rexp) -> compileExpr(lexp) <+> compileExpr(rexp) <+ BINOP(op)
   esac
 }
-
 -- Compiles a statement into a stack machine code.
 -- Takes a statement, returns a list of stack machine
 -- instructions.
