@@ -67,7 +67,7 @@ fun eval (env, [stack, state, world], insns) {
      esac
    | BINOP (op) : others ->
      case stack of
-       value1 : value2 : stackTail -> eval(env, [getOp(op, value2, value1) : stackTail, state, world], others)  -- WTF
+       value1 : value2 : stackTail -> eval(env, [getOp(op) (value2, value1) : stackTail, state, world], others)  -- WTF
      esac
     | LD (x) : others ->
       eval(env, [evalExpr(state, Var (x)) : stack, state, world], others)
